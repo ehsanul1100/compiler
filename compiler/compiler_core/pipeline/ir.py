@@ -117,39 +117,67 @@ class IRBuilder:
     # stmt
     def gen_stmt(self, s: Stmt):
         if isinstance(s, Block):
-            for st in s.statements: self.gen_stmt(st); return
+            # PATCH: Remove 'return' after the for loop, so all statements are processed
+            for st in s.statements:
+                self.gen_stmt(st)
+            return
         if isinstance(s, VarDecl):
             if s.init is not None:
-                v = self.gen_expr(s.init); self.emit(AssignInstr(s.name, v)); return
+                v = self.gen_expr(s.init)
+                self.emit(AssignInstr(s.name, v))
             return
         if isinstance(s, If):
-            else_lbl = self.new_label('Lelse'); end_lbl = self.new_label('Lend')
-            c = self.gen_expr(s.cond); self.emit(IfFalse(c, else_lbl))
-            self.gen_stmt(s.then_branch); self.emit(Goto(end_lbl))
-            self.emit(Label(else_lbl));
-            if s.else_branch: self.gen_stmt(s.else_branch)
-            self.emit(Label(end_lbl)); return
+            else_lbl = self.new_label('Lelse')
+            end_lbl = self.new_label('Lend')
+            c = self.gen_expr(s.cond)
+            self.emit(IfFalse(c, else_lbl))
+            self.gen_stmt(s.then_branch)
+            self.emit(Goto(end_lbl))
+            self.emit(Label(else_lbl))
+            if s.else_branch:
+                self.gen_stmt(s.else_branch)
+            self.emit(Label(end_lbl))
+            return
         if isinstance(s, While):
-            start = self.new_label('Lwhile'); end = self.new_label('Lwend')
-            self.emit(Label(start)); c = self.gen_expr(s.cond); self.emit(IfFalse(c, end))
-            self.gen_stmt(s.body); self.emit(Goto(start)); self.emit(Label(end)); return
-        if isinstance(s, For):
-            start = self.new_label('Lfor'); end = self.new_label('Lfend')
-            if s.init: self.gen_stmt(s.init)
+            start = self.new_label('Lwhile')
+            end = self.new_label('Lwend')
             self.emit(Label(start))
-            if s.cond: self.emit(IfFalse(self.gen_expr(s.cond), end))
+            c = self.gen_expr(s.cond)
+            self.emit(IfFalse(c, end))
+            # PATCH: Remove 'return' so all statements in the body are processed
             self.gen_stmt(s.body)
-            if s.post: self.gen_stmt(s.post)
-            self.emit(Goto(start)); self.emit(Label(end)); return
-        if isinstance(s, Print): self.emit(PrintInstr(self.gen_expr(s.expr))); return
+            self.emit(Goto(start))
+            self.emit(Label(end))
+            return
+        if isinstance(s, For):
+            start = self.new_label('Lfor')
+            end = self.new_label('Lfend')
+            if s.init:
+                self.gen_stmt(s.init)
+            self.emit(Label(start))
+            if s.cond:
+                self.emit(IfFalse(self.gen_expr(s.cond), end))
+            self.gen_stmt(s.body)
+            if s.post:
+                self.gen_stmt(s.post)
+            self.emit(Goto(start))
+            self.emit(Label(end))
+            return
+        if isinstance(s, Print):
+            self.emit(PrintInstr(self.gen_expr(s.expr)))
+            return
         if isinstance(s, Return):
             v = self.gen_expr(s.expr) if s.expr is not None else None
-            self.emit(ReturnInstr(v)); return
-        if isinstance(s, ExprStmt): self.gen_expr(s.expr); return
+            self.emit(ReturnInstr(v))
+            return
+        if isinstance(s, ExprStmt):
+            self.gen_expr(s.expr)
+            return
         if isinstance(s, FunctionDecl):
             self.emit(FuncStart(s.name, [p.name for p in s.params]))
             self.gen_stmt(s.body)
-            self.emit(FuncEnd(s.name)); return
+            self.emit(FuncEnd(s.name))
+            return
         # else ignore
 
     def gen(self, root: Program) -> IR:

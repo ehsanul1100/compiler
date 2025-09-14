@@ -148,9 +148,13 @@ class VM:
 
         return True
 
-    def run(self) -> str:
+    def run(self, max_steps=10000) -> str:
+        steps = 0
         while self.step():
-            pass
+            steps += 1
+            if steps > max_steps:
+                self.output.append("[VM ERROR] Infinite loop detected or too many steps.")
+                break
         return "\n".join(self.output)
 
 def run(bytecode: List[BCInstr]) -> str:
